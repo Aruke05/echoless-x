@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026-07-04-v1
+// @version      2026.07.04.1
 // @description:zh-CN  在 X/Twitter 时间线上过滤转发内容，只显示原创推文。转发可缩略预览或以隐藏条显示，并提供可拖动控制面板管理显示设置。支持媒体缩略图、作者信息预览及双模式隐藏。
 // @description:en  Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @author       Mercury
@@ -10,7 +10,7 @@
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        none
 // @run-at       document-start
-// @namespace    https://github.com/Aruke05/echoless-x
+// @namespace    https://tampermonkey.net/
 // @description Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @downloadURL  https://raw.githubusercontent.com/Aruke05/echoless-x/main/echoless-x.user.js
 // @updateURL    https://raw.githubusercontent.com/Aruke05/echoless-x/main/echoless-x.user.js
