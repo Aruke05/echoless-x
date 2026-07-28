@@ -1,14 +1,15 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026.07.04.1
+// @version      2026.07.28.1
 // @description:zh-CN  在 X/Twitter 时间线上过滤转发内容，只显示原创推文。转发可缩略预览或以隐藏条显示，并提供可拖动控制面板管理显示设置。支持媒体缩略图、作者信息预览及双模式隐藏。
 // @description:en  Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @author       Mercury
 // @match        https://twitter.com/*
 // @match        https://x.com/*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @run-at       document-start
 // @namespace    https://tampermonkey.net/
 // @description Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
@@ -86,6 +87,7 @@
       repostedAuthorAvatar: '被转发人的头像',
       videoThumbnail: '视频缩略图',
       imageThumbnail: '图片缩略图',
+      openMedia: '打开媒体预览',
       modes: {
         [HIDE_MODE.preview]: {
           label: '缩略图',
@@ -117,6 +119,7 @@
       repostedAuthorAvatar: 'Reposted author avatar',
       videoThumbnail: 'Video thumbnail',
       imageThumbnail: 'Image thumbnail',
+      openMedia: 'Open media preview',
       modes: {
         [HIDE_MODE.preview]: {
           label: 'Preview',
@@ -184,16 +187,15 @@
     helpOpen: false,
     scanPending: false,
     generatedId: 0,
-    lastRouteWasProfile: isProfileHome(),
+    lastUrl: location.href,
   };
 
   injectStyle();
   updateRouteClass();
   bootWhenReady();
-  patchHistory();
+  setupRouteObserver();
 
-  window.addEventListener('popstate', onRouteChange);
-  window.addEventListener(`${APP}:route-change`, onRouteChange);
+  window.addEventListener('popstate', detectRouteChange);
   window.addEventListener('resize', () => {
     const panel = document.getElementById(PANEL_ID);
     if (panel) repositionPanelInsideViewport(panel);
@@ -215,23 +217,17 @@
     scheduleScan(true);
   }
 
-  function patchHistory() {
-    ['pushState', 'replaceState'].forEach((methodName) => {
-      const original = history[methodName];
-      if (original.__xOriginalOnlyPatched) return;
+  function setupRouteObserver() {
+    window.navigation?.addEventListener?.('navigatesuccess', detectRouteChange);
+  }
 
-      history[methodName] = function (...args) {
-        const result = original.apply(this, args);
-        window.dispatchEvent(new Event(`${APP}:route-change`));
-        return result;
-      };
-      history[methodName].__xOriginalOnlyPatched = true;
-    });
+  function detectRouteChange() {
+    if (state.lastUrl === location.href) return;
+    state.lastUrl = location.href;
+    onRouteChange();
   }
 
   function onRouteChange() {
-    const nowProfile = isProfileHome();
-    state.lastRouteWasProfile = nowProfile;
     updateRouteClass();
     scheduleScan(true);
   }
@@ -242,6 +238,8 @@
 
   function setupMutationObserver() {
     const observer = new MutationObserver((mutations) => {
+      detectRouteChange();
+
       if (mutations.some(hasRelevantMutation)) {
         markPendingArticles(mutations);
         scheduleScan(false);
@@ -313,8 +311,6 @@
     }
 
     document.querySelectorAll('article[data-testid="tweet"]').forEach((article) => {
-      patchStatusLinksForNewTab(article);
-
       if (!isRepostArticle(article)) {
         article.dataset[DATA.checked] = '1';
         restoreArticle(article);
@@ -417,16 +413,14 @@
     if (!isProfileHome()) return;
     if (target.closest(`#${PANEL_ID}, .${CLASS.placeholder}`)) return;
     if (!isPlainPrimaryClick(event)) return;
+    if (isTweetMediaTarget(target)) return;
     if (isInteractiveTweetControl(target)) return;
 
     const article = target.closest('article[data-testid="tweet"]');
     if (!article) return;
+    if (target.closest('a[href]')) return;
 
-    const directLink = target.closest('a[href*="/status/"]');
-    if (directLink && directLink.closest('article[data-testid="tweet"]') !== article) return;
-    if (!directLink && target.closest('a[href]')) return;
-
-    const url = getStatusUrlFromArticleClick(article, directLink);
+    const url = getStatusUrlFromArticleClick(article);
     if (!url) return;
 
     event.preventDefault();
@@ -435,20 +429,8 @@
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  function patchStatusLinksForNewTab(article) {
-    article.querySelectorAll('a[href*="/status/"]').forEach((link) => {
-      const url = getAbsoluteStatusUrl(link.getAttribute('href') || '');
-      if (!url) return;
-
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-    });
-  }
-
-  function getStatusUrlFromArticleClick(article, directLink) {
+  function getStatusUrlFromArticleClick(article) {
     const href =
-      directLink?.getAttribute('href') ||
       article.querySelector('a[href*="/status/"] time')?.closest('a[href*="/status/"]')?.getAttribute('href') ||
       Array.from(article.querySelectorAll('a[href*="/status/"]'))
         .map((link) => link.getAttribute('href') || '')
@@ -472,6 +454,19 @@
 
   function isPlainPrimaryClick(event) {
     return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+  }
+
+  function isTweetMediaTarget(target) {
+    return Boolean(
+      target.closest(
+        [
+          'video',
+          '[data-testid="videoComponent"]',
+          '[data-testid="tweetPhoto"]',
+          'a[href*="/photo/"]',
+        ].join(',')
+      )
+    );
   }
 
   function isInteractiveTweetControl(target) {
@@ -501,8 +496,7 @@
   }
 
   function preserveViewportPosition(callback) {
-    // Filtering itself must never force-scroll the page. Back-navigation is
-    // handled by opening tweet details in a new tab, preserving the timeline.
+    // Filtering itself must never force-scroll the page.
     callback();
   }
 
@@ -598,7 +592,7 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.className = CLASS.thumb;
-      button.title = t('showThis');
+      button.title = t('openMedia');
 
       const image = document.createElement('img');
       image.src = item.src;
@@ -621,9 +615,40 @@
         button.appendChild(badge);
       }
 
-      button.addEventListener('click', () => toggleSingleArticle(article));
+      button.addEventListener('click', () => openMediaFromPreview(article, item));
       grid.appendChild(button);
     });
+  }
+
+  function openMediaFromPreview(article, item) {
+    const tweetId = article.dataset[DATA.tweetId] || getTweetId(article);
+
+    if (!state.showAll) {
+      state.expandedTweetIds.add(tweetId);
+    }
+
+    applyVisibilityToAll();
+    updatePanel();
+
+    const mediaTarget = findOriginalMediaTarget(article, item);
+    mediaTarget?.click();
+  }
+
+  function findOriginalMediaTarget(article, item) {
+    const image = Array.from(article.querySelectorAll('img')).find(
+      (candidate) => getUsefulMediaImageSrc(candidate) === item.src
+    );
+    const video = Array.from(article.querySelectorAll('video')).find(
+      (candidate) => getStableTwimgMediaSrc(candidate.poster) === item.src
+    );
+    const sourceNode = image || video;
+    if (!sourceNode) return null;
+
+    const link = sourceNode.closest('a[href]');
+    if (link) return link;
+
+    const videoComponent = sourceNode.closest('[data-testid="videoComponent"]');
+    return videoComponent?.querySelector('video, button, [role="button"]') || sourceNode;
   }
 
   function getMediaItems(article) {
@@ -866,7 +891,7 @@
     panel.querySelectorAll('[data-mode]').forEach((button) => {
       button.addEventListener('click', () => {
         state.hideMode = button.dataset.mode;
-        localStorage.setItem(STORAGE.mode, state.hideMode);
+        setStoredHideMode(state.hideMode);
         applyVisibilityToAll();
         updatePanel();
       });
@@ -1025,8 +1050,53 @@
   }
 
   function getStoredHideMode() {
-    const mode = localStorage.getItem(STORAGE.mode);
-    return Object.values(HIDE_MODE).includes(mode) ? mode : HIDE_MODE.bar;
+    const mode = getManagerValue(STORAGE.mode, null);
+    if (Object.values(HIDE_MODE).includes(mode)) return mode;
+
+    const legacyMode = getLocalStorageValue(STORAGE.mode);
+    if (Object.values(HIDE_MODE).includes(legacyMode)) {
+      setManagerValue(STORAGE.mode, legacyMode);
+      return legacyMode;
+    }
+
+    return HIDE_MODE.bar;
+  }
+
+  function setStoredHideMode(mode) {
+    setManagerValue(STORAGE.mode, mode);
+    setLocalStorageValue(STORAGE.mode, mode);
+  }
+
+  function getManagerValue(key, fallback) {
+    try {
+      return GM_getValue(key, fallback);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function setManagerValue(key, value) {
+    try {
+      GM_setValue(key, value);
+    } catch {
+      // Keep the localStorage fallback below available for restrictive managers.
+    }
+  }
+
+  function getLocalStorageValue(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function setLocalStorageValue(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Script-manager storage remains the primary persistence layer.
+    }
   }
 
   function getUiLanguage() {
