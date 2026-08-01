@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026.07.28.1
+// @version      2026.08.01.1
 // @description:zh-CN  在 X/Twitter 时间线上过滤转发内容，只显示原创推文。转发可缩略预览或以隐藏条显示，并提供可拖动控制面板管理显示设置。支持媒体缩略图、作者信息预览及双模式隐藏。
 // @description:en  Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @author       Mercury
@@ -53,6 +53,14 @@
     panelPositionExpanded: `${APP}:panel-position-expanded`,
     panelPositionCollapsed: `${APP}:panel-position-collapsed`,
     panelCollapsed: `${APP}:panel-collapsed`,
+    timelinePosition: `${APP}:timeline-position`,
+  };
+
+  const TIMELINE_RESTORE = {
+    maxAge: 30 * 60 * 1000,
+    minDuration: 3000,
+    maxDuration: 8000,
+    quietDuration: 1200,
   };
 
   const HIDE_MODE = {
@@ -188,6 +196,10 @@
     scanPending: false,
     generatedId: 0,
     lastUrl: location.href,
+    navigationType: '',
+    syntheticNavigation: false,
+    timelineSnapshot: null,
+    timelineRestore: null,
   };
 
   injectStyle();
@@ -195,7 +207,21 @@
   bootWhenReady();
   setupRouteObserver();
 
-  window.addEventListener('popstate', detectRouteChange);
+  window.addEventListener('popstate', () => {
+    state.navigationType = 'traverse';
+    detectRouteChange();
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted && isProfileHome()) beginTimelineRestore();
+  });
+  window.addEventListener('wheel', cancelTimelineRestoreForUser, { capture: true, passive: true });
+  window.addEventListener('touchstart', cancelTimelineRestoreForUser, { capture: true, passive: true });
+  window.addEventListener('pointerdown', cancelTimelineRestoreForUser, { capture: true, passive: true });
+  window.addEventListener('keydown', (event) => {
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
+      cancelTimelineRestoreForUser();
+    }
+  });
   window.addEventListener('resize', () => {
     const panel = document.getElementById(PANEL_ID);
     if (panel) repositionPanelInsideViewport(panel);
@@ -215,21 +241,39 @@
     document.addEventListener('click', captureNavigationAnchor, true);
     setupMutationObserver();
     scheduleScan(true);
+
+    if (isProfileHome() && isBackForwardPageLoad()) {
+      beginTimelineRestore();
+    }
   }
 
   function setupRouteObserver() {
+    window.navigation?.addEventListener?.('navigate', (event) => {
+      state.navigationType = event.navigationType || '';
+    });
+    window.navigation?.addEventListener?.('currententrychange', (event) => {
+      state.navigationType = event.navigationType || state.navigationType;
+      detectRouteChange();
+    });
     window.navigation?.addEventListener?.('navigatesuccess', detectRouteChange);
   }
 
   function detectRouteChange() {
     if (state.lastUrl === location.href) return;
+    const previousUrl = state.lastUrl;
+    const navigationType = state.navigationType;
     state.lastUrl = location.href;
-    onRouteChange();
+    state.navigationType = '';
+    onRouteChange(previousUrl, navigationType);
   }
 
-  function onRouteChange() {
+  function onRouteChange(previousUrl, navigationType) {
     updateRouteClass();
     scheduleScan(true);
+
+    if (isProfileHome() && isStatusUrl(previousUrl) && navigationType === 'traverse') {
+      beginTimelineRestore();
+    }
   }
 
   function updateRouteClass() {
@@ -327,6 +371,7 @@
     });
 
     updatePanel();
+    attemptTimelineRestore();
   }
 
   function isProfileHome() {
@@ -413,30 +458,61 @@
     if (!isProfileHome()) return;
     if (target.closest(`#${PANEL_ID}, .${CLASS.placeholder}`)) return;
     if (!isPlainPrimaryClick(event)) return;
-    if (isTweetMediaTarget(target)) return;
-    if (isInteractiveTweetControl(target)) return;
 
     const article = target.closest('article[data-testid="tweet"]');
     if (!article) return;
+
+    if (state.syntheticNavigation) return;
+
+    const directStatusLink = target.closest('a[href*="/status/"]');
+    const directStatusUrl = getAbsoluteStatusUrl(directStatusLink?.getAttribute('href') || '');
+    if (directStatusUrl) {
+      rememberTimelinePosition(article, directStatusUrl);
+      return;
+    }
+
+    if (isTweetMediaTarget(target)) {
+      rememberTimelinePosition(article, getStatusUrlFromArticleClick(article));
+      return;
+    }
+
+    if (isInteractiveTweetControl(target)) return;
     if (target.closest('a[href]')) return;
 
     const url = getStatusUrlFromArticleClick(article);
     if (!url) return;
 
+    rememberTimelinePosition(article, url);
+
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
-    window.open(url, '_blank', 'noopener,noreferrer');
+
+    const statusLink = getPrimaryStatusLink(article);
+    if (!statusLink) {
+      location.assign(url);
+      return;
+    }
+
+    state.syntheticNavigation = true;
+    statusLink.click();
+    state.syntheticNavigation = false;
   }
 
   function getStatusUrlFromArticleClick(article) {
-    const href =
-      article.querySelector('a[href*="/status/"] time')?.closest('a[href*="/status/"]')?.getAttribute('href') ||
-      Array.from(article.querySelectorAll('a[href*="/status/"]'))
-        .map((link) => link.getAttribute('href') || '')
-        .find((value) => /\/status\/\d+/.test(value));
+    const href = getPrimaryStatusLink(article)?.getAttribute('href') || '';
 
-    return getAbsoluteStatusUrl(href || '');
+    return getAbsoluteStatusUrl(href);
+  }
+
+  function getPrimaryStatusLink(article) {
+    return (
+      article.querySelector('a[href*="/status/"] time')?.closest('a[href*="/status/"]') ||
+      Array.from(article.querySelectorAll('a[href*="/status/"]')).find((link) =>
+        /\/status\/\d+/.test(link.getAttribute('href') || '')
+      ) ||
+      null
+    );
   }
 
   function getAbsoluteStatusUrl(href) {
@@ -454,6 +530,208 @@
 
   function isPlainPrimaryClick(event) {
     return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+  }
+
+  function rememberTimelinePosition(article, destinationUrl) {
+    const anchors = collectTimelineAnchors(article);
+    if (!anchors.length) return;
+
+    const snapshot = {
+      version: 1,
+      sourceUrl: getCurrentRouteUrl(),
+      destinationUrl,
+      scrollY: window.scrollY,
+      anchors,
+      createdAt: Date.now(),
+    };
+
+    state.timelineSnapshot = snapshot;
+    setSessionStorageValue(STORAGE.timelinePosition, JSON.stringify(snapshot));
+  }
+
+  function collectTimelineAnchors(clickedArticle) {
+    const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+    const clickedAnchor = getTimelineAnchor(clickedArticle);
+    const visibleAnchors = articles
+      .map(getTimelineAnchor)
+      .filter(Boolean)
+      .filter((anchor) => anchor.bottom > 0 && anchor.top < window.innerHeight)
+      .sort((a, b) => Math.abs(a.top) - Math.abs(b.top));
+
+    const anchors = clickedAnchor ? [clickedAnchor, ...visibleAnchors] : visibleAnchors;
+    const seen = new Set();
+
+    return anchors
+      .filter((anchor) => {
+        if (seen.has(anchor.tweetId)) return false;
+        seen.add(anchor.tweetId);
+        return true;
+      })
+      .slice(0, 6)
+      .map(({ tweetId, top }) => ({ tweetId, top }));
+  }
+
+  function getTimelineAnchor(article) {
+    const tweetId = getTweetIdFromArticle(article);
+    if (!tweetId) return null;
+
+    const node = getArticleVisualNode(article);
+    const rect = node.getBoundingClientRect();
+    return {
+      tweetId,
+      top: rect.top,
+      bottom: rect.bottom,
+    };
+  }
+
+  function getArticleVisualNode(article) {
+    const placeholder = getPlaceholder(article);
+    return placeholder && !placeholder.hidden && article.classList.contains(CLASS.hidden) ? placeholder : article;
+  }
+
+  function beginTimelineRestore() {
+    const snapshot = getStoredTimelinePosition();
+    if (!snapshot || !isSameRoute(snapshot.sourceUrl, getCurrentRouteUrl())) return;
+
+    cancelTimelineRestore(false);
+    const now = performance.now();
+    state.timelineRestore = {
+      snapshot,
+      startedAt: now,
+      lastCorrectionAt: now,
+      matched: false,
+      usedScrollFallback: false,
+      frameId: 0,
+    };
+    attemptTimelineRestore();
+  }
+
+  function attemptTimelineRestore() {
+    const restore = state.timelineRestore;
+    if (!restore || !isProfileHome()) return;
+
+    if (restore.frameId) cancelAnimationFrame(restore.frameId);
+    restore.frameId = 0;
+
+    const now = performance.now();
+    const elapsed = now - restore.startedAt;
+    const match = findTimelineRestoreAnchor(restore.snapshot.anchors);
+
+    if (match) {
+      restore.matched = true;
+      const delta = match.node.getBoundingClientRect().top - match.top;
+      if (Math.abs(delta) > 0.5) {
+        window.scrollBy(0, delta);
+        restore.lastCorrectionAt = now;
+      }
+    } else if (!restore.usedScrollFallback && elapsed > 100) {
+      restore.usedScrollFallback = true;
+      window.scrollTo(0, restore.snapshot.scrollY);
+      restore.lastCorrectionAt = now;
+    }
+
+    const stable = restore.matched && now - restore.lastCorrectionAt >= TIMELINE_RESTORE.quietDuration;
+    if (elapsed >= TIMELINE_RESTORE.maxDuration || (elapsed >= TIMELINE_RESTORE.minDuration && stable)) {
+      finishTimelineRestore();
+      return;
+    }
+
+    restore.frameId = requestAnimationFrame(attemptTimelineRestore);
+  }
+
+  function findTimelineRestoreAnchor(anchors) {
+    const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+    const articlesById = new Map(
+      articles.map((article) => [getTweetIdFromArticle(article), article]).filter(([tweetId]) => tweetId)
+    );
+
+    for (const anchor of anchors) {
+      const article = articlesById.get(anchor.tweetId);
+      if (!article || article.dataset[DATA.checked] !== '1') continue;
+      return { node: getArticleVisualNode(article), top: anchor.top };
+    }
+
+    return null;
+  }
+
+  function finishTimelineRestore() {
+    const restore = state.timelineRestore;
+    if (!restore) return;
+    if (restore.frameId) cancelAnimationFrame(restore.frameId);
+    state.timelineRestore = null;
+    state.timelineSnapshot = null;
+    removeSessionStorageValue(STORAGE.timelinePosition);
+  }
+
+  function cancelTimelineRestoreForUser() {
+    if (!state.timelineRestore) return;
+    cancelTimelineRestore(true);
+  }
+
+  function cancelTimelineRestore(clearSnapshot) {
+    const restore = state.timelineRestore;
+    if (restore?.frameId) cancelAnimationFrame(restore.frameId);
+    state.timelineRestore = null;
+    if (clearSnapshot) {
+      state.timelineSnapshot = null;
+      removeSessionStorageValue(STORAGE.timelinePosition);
+    }
+  }
+
+  function getStoredTimelinePosition() {
+    try {
+      const snapshot =
+        state.timelineSnapshot || JSON.parse(getSessionStorageValue(STORAGE.timelinePosition) || 'null');
+      const valid =
+        snapshot?.version === 1 &&
+        typeof snapshot.sourceUrl === 'string' &&
+        Number.isFinite(snapshot.scrollY) &&
+        Array.isArray(snapshot.anchors) &&
+        snapshot.anchors.length > 0 &&
+        snapshot.anchors.every(
+          (anchor) => typeof anchor?.tweetId === 'string' && anchor.tweetId && Number.isFinite(anchor.top)
+        ) &&
+        Number.isFinite(snapshot.createdAt) &&
+        Date.now() - snapshot.createdAt <= TIMELINE_RESTORE.maxAge;
+
+      if (valid) return snapshot;
+    } catch {
+      // Remove malformed or outdated restoration data below.
+    }
+
+    state.timelineSnapshot = null;
+    removeSessionStorageValue(STORAGE.timelinePosition);
+    return null;
+  }
+
+  function getCurrentRouteUrl() {
+    return `${location.origin}${location.pathname.replace(/\/$/, '') || '/'}`;
+  }
+
+  function isSameRoute(firstUrl, secondUrl) {
+    try {
+      const first = new URL(firstUrl, location.origin);
+      const second = new URL(secondUrl, location.origin);
+      return first.origin === second.origin && first.pathname.replace(/\/$/, '') === second.pathname.replace(/\/$/, '');
+    } catch {
+      return false;
+    }
+  }
+
+  function isStatusUrl(url) {
+    try {
+      return /\/status\/\d+/.test(new URL(url, location.origin).pathname);
+    } catch {
+      return false;
+    }
+  }
+
+  function isBackForwardPageLoad() {
+    try {
+      return performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+    } catch {
+      return false;
+    }
   }
 
   function isTweetMediaTarget(target) {
@@ -1096,6 +1374,30 @@
       localStorage.setItem(key, value);
     } catch {
       // Script-manager storage remains the primary persistence layer.
+    }
+  }
+
+  function getSessionStorageValue(key) {
+    try {
+      return sessionStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function setSessionStorageValue(key, value) {
+    try {
+      sessionStorage.setItem(key, value);
+    } catch {
+      // In-memory route handling still works when session storage is unavailable.
+    }
+  }
+
+  function removeSessionStorageValue(key) {
+    try {
+      sessionStorage.removeItem(key);
+    } catch {
+      // Ignore storage restrictions from privacy-focused browsers.
     }
   }
 
