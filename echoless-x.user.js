@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026.08.03.2
+// @version      2026.08.03.4
 // @description:zh-CN  在 X/Twitter 时间线上过滤转发内容，只显示原创推文。转发可缩略预览或以隐藏条显示，并提供可拖动控制面板管理显示设置。支持媒体缩略图、作者信息预览及双模式隐藏。
 // @description:en  Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @author       Mercury
@@ -422,6 +422,17 @@
     if (!article) return;
 
     const clickedLink = target.closest('a[href]');
+    if (isProfileContext && !clickedLink) {
+      const mediaTarget = findPrimaryMediaTarget(article);
+      if (mediaTarget) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        mediaTarget.click();
+        return;
+      }
+    }
+
     const url = clickedLink
       ? isMediaDialogContext
         ? getMediaDialogNavigationUrl(clickedLink.getAttribute('href') || '')
@@ -433,6 +444,23 @@
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function findPrimaryMediaTarget(article) {
+    const tweetId = getTweetIdFromArticle(article);
+    if (!tweetId) return null;
+
+    return (
+      Array.from(article.querySelectorAll('a[href*="/status/"]')).find((link) => {
+        const href = link.getAttribute('href') || '';
+        return new RegExp(`/status/${tweetId}/(?:photo|video)/\\d+`).test(href) && hasLayout(link);
+      }) || null
+    );
+  }
+
+  function hasLayout(node) {
+    const rect = node.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && node.getClientRects().length > 0;
   }
 
   function isInsideOfficialMediaDialog(target) {
