@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026.07.28.1
+// @version      2026.08.03.2
 // @description:zh-CN  在 X/Twitter 时间线上过滤转发内容，只显示原创推文。转发可缩略预览或以隐藏条显示，并提供可拖动控制面板管理显示设置。支持媒体缩略图、作者信息预览及双模式隐藏。
 // @description:en  Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @author       Mercury
@@ -410,7 +410,9 @@
   function captureNavigationAnchor(event) {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (!isProfileHome()) return;
+    const isProfileContext = isProfileHome();
+    const isMediaDialogContext = isInsideOfficialMediaDialog(target);
+    if (!isProfileContext && !isMediaDialogContext) return;
     if (target.closest(`#${PANEL_ID}, .${CLASS.placeholder}`)) return;
     if (!isPlainPrimaryClick(event)) return;
     if (isTweetMediaTarget(target)) return;
@@ -418,15 +420,59 @@
 
     const article = target.closest('article[data-testid="tweet"]');
     if (!article) return;
-    if (target.closest('a[href]')) return;
 
-    const url = getStatusUrlFromArticleClick(article);
+    const clickedLink = target.closest('a[href]');
+    const url = clickedLink
+      ? isMediaDialogContext
+        ? getMediaDialogNavigationUrl(clickedLink.getAttribute('href') || '')
+        : ''
+      : getStatusUrlFromArticleClick(article);
     if (!url) return;
 
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function isInsideOfficialMediaDialog(target) {
+    if (!/\/status\/\d+\/(?:photo|video)\/\d+/.test(location.pathname)) return false;
+    return Boolean(target.closest('[role="dialog"]'));
+  }
+
+  function getMediaDialogNavigationUrl(href) {
+    return getPlainStatusUrl(href) || getProfileUrl(href);
+  }
+
+  function getPlainStatusUrl(href) {
+    const url = getAbsoluteStatusUrl(href);
+    if (!url) return '';
+
+    try {
+      return /^\/[^/]+\/status\/\d+\/?$/.test(new URL(url).pathname) ? url : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function getProfileUrl(href) {
+    try {
+      const url = new URL(href, location.origin);
+      const path = url.pathname.replace(/^\/+|\/+$/g, '');
+      if (
+        url.origin !== location.origin ||
+        !path ||
+        path.includes('/') ||
+        PROFILE_BLOCKLIST.has(path.toLowerCase())
+      ) {
+        return '';
+      }
+      url.search = '';
+      url.hash = '';
+      return url.href;
+    } catch {
+      return '';
+    }
   }
 
   function getStatusUrlFromArticleClick(article) {
