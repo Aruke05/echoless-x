@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026.08.03.4
+// @version      2026.11.13.1
 // @description:zh-CN  在 X/Twitter 时间线上过滤转发内容，只显示原创推文。转发可缩略预览或以隐藏条显示，并提供可拖动控制面板管理显示设置。支持媒体缩略图、作者信息预览及双模式隐藏。
 // @description:en  Hide reposts on X/Twitter profile timelines while keeping original posts easy to read.
 // @author       Mercury
@@ -420,6 +420,7 @@
 
     const article = target.closest('article[data-testid="tweet"]');
     if (!article) return;
+    if (isTextSelectionGesture(event, article)) return;
 
     const clickedLink = target.closest('a[href]');
     if (isProfileContext && !clickedLink) {
@@ -444,6 +445,19 @@
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function isTextSelectionGesture(event, article) {
+    if (event.detail > 1) return true;
+
+    const selection = window.getSelection?.();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+    if (!normalizeDisplayText(selection.toString())) return false;
+
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      if (selection.getRangeAt(index).intersectsNode(article)) return true;
+    }
+    return false;
   }
 
   function findPrimaryMediaTarget(article) {
