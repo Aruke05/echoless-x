@@ -2,11 +2,11 @@
 
 EchoLess X 已于 **2026-11-13** 结束维护。感谢所有安装、使用和反馈的用户。
 
-这个项目曾用于折叠 X/Twitter 个人主页的转发内容。结合近期观察到的个人主页转帖展示变化，以及长期存在的返回位置体验问题，我们决定结束项目。各账号的 X 界面可能有所差异，具体以你看到的页面为准。
+X/Twitter 已更新，EchoLess X 已结束维护，所有功能已停用。请在脚本管理器中删除「X/Twitter 仅看原创 – 隐藏转发」。
 
 ## 已安装用户
 
-最终版本为 **2026.11.13.3**：
+最终版本为 **2026.11.13.4**：
 
 - 停用转发过滤、悬浮控制面板和帖子点击拦截，恢复 X 原生浏览行为。
 - 在访问 X/Twitter 时显示结束维护通知，点击关闭后记录确认状态。
@@ -20,9 +20,9 @@ Greasy Fork 页面停止公开收录，保留原链接和更新通道，方便�
 
 ## Retirement notice
 
-EchoLess X was retired on **2026-11-13**. Thank you for your support and feedback.
+X/Twitter has been updated. EchoLess X was retired on **2026-11-13** and all features are disabled. Please delete “X/Twitter Original Posts Only – Hide Reposts” in your userscript manager. Thank you for your support.
 
-The final version, **2026.11.13.3**, disables repost filtering, the control panel, and post-click interception. X handles browsing and navigation normally. A dismissible retirement notice appears when you visit X/Twitter; acknowledgment is stored locally. You may uninstall the script in your userscript manager. Existing settings are preserved.
+The final version, **2026.11.13.4**, disables repost filtering, the control panel, and post-click interception. X handles browsing and navigation normally. A dismissible retirement notice appears when you visit X/Twitter; acknowledgment is stored locally. You may uninstall the script in your userscript manager. Existing settings are preserved.
 
 Users with automatic updates enabled will receive the final version when their userscript manager checks for updates. You can also check manually. Refresh existing X/Twitter tabs after updating. If both manager storage and site storage are restricted, the notice may reappear on later visits.
 
