@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name:zh-CN         X/Twitter 仅看原创 – 隐藏转发
 // @name         X/Twitter Original Posts Only – Hide Reposts
-// @version      2026.11.13.4
+// @version      2026.11.13.5
 // @description:zh-CN  项目已于 2026-11-13 结束维护。最终版本停用过滤与导航改写，并显示一次可关闭的结束通知。
 // @description:en  Retired on 2026-11-13. Final update disables filtering and navigation changes and shows a dismissible retirement notice.
 // @author       Mercury
@@ -68,8 +68,8 @@
     title.textContent = zh ? 'EchoLess X 已结束 · 请卸载' : 'EchoLess X retired · Please uninstall';
     const message = document.createElement('p');
     message.textContent = zh
-      ? 'X/Twitter 已更新，EchoLess X 已结束维护，所有功能已停用。请在脚本管理器中删除「X/Twitter 仅看原创 – 隐藏转发」。感谢使用。'
-      : 'X/Twitter has been updated. EchoLess X has retired and all features are disabled. Please delete “X/Twitter Original Posts Only – Hide Reposts” in your userscript manager. Thank you for using it.';
+      ? 'X/Twitter 个人主页已将「帖子」与「转帖」分开展示，可分别浏览。EchoLess X 因此结束维护，所有功能已停用。请在脚本管理器中删除本脚本。感谢使用！'
+      : 'X/Twitter profiles now have separate Posts and Reposts tabs. EchoLess X has therefore retired and all features are disabled. Please delete this script in your userscript manager. Thank you!';
     const link = document.createElement('a');
     link.href = 'https://github.com/Aruke05/echoless-x#readme';
     link.target = '_blank';
