@@ -1,239 +1,33 @@
-# EchoLess X
+# EchoLess X · 已结束维护 / Retired
 
-一个轻量级 X/Twitter 用户脚本，用于在个人主页时间线上隐藏转发内容，让你更专注于原创推文。
+EchoLess X 已于 **2026-11-13** 结束维护。感谢所有安装、使用和反馈的用户。
 
-EchoLess X 通过 Tampermonkey、Violentmonkey 或其他用户脚本管理器在浏览器中运行。它会自动识别 X/Twitter 个人主页中的转发内容，并将其折叠成简洁的占位条，而不是直接删除。你可以随时单独显示某条转发，也可以一键显示全部转发。
+这个项目曾用于折叠 X/Twitter 个人主页的转发内容。结合近期观察到的个人主页转帖展示变化，以及长期存在的返回位置体验问题，我们决定结束项目。各账号的 X 界面可能有所差异，具体以你看到的页面为准。
 
----
+## 已安装用户
 
-## 功能特性
+最终版本为 **2026.11.13.3**：
 
-* 在 X/Twitter 个人主页时间线上隐藏转发内容
-* 保留原创推文正常显示
-* 支持两种隐藏模式：
+- 停用转发过滤、悬浮控制面板和帖子点击拦截，恢复 X 原生浏览行为。
+- 在访问 X/Twitter 时显示结束维护通知，点击关闭后记录确认状态。
+- 保留旧版的本地设置；后续可在 Tampermonkey、Violentmonkey 等脚本管理器中卸载脚本。
 
-  * **缩略图模式**：隐藏转发正文，但保留被转发人的信息和媒体缩略图
-  * **隐藏条模式**：只显示一个紧凑的占位提示条
-* 支持单独显示或隐藏某一条转发
-* 支持一键显示全部隐藏转发
-* 保留 X 原生图片、视频预览及时间戳导航
-* 提供悬浮控制面板
-* 控制面板支持拖动
-* 控制面板支持收起
-* 使用脚本管理器存储自动保存隐藏模式
-* 支持中文和英文界面
-* 支持暗色模式
-* 支持系统“减少动画”偏好
-* 适配 X/Twitter 动态加载内容
-* 适配 X/Twitter 单页应用路由切换
+开启自动更新的用户将在脚本管理器检查更新并安装最终版本后收到通知。也可以在脚本管理器中手动检查更新。已打开的旧页面请刷新，让最终版本生效。
 
----
+通知只使用浏览器和脚本管理器的本地存储。项目从未建立安装用户的联系名单；通知通过脚本更新送达。若脚本管理器存储与站点存储都受限，关闭状态仅持续到本次页面结束。
 
-## 项目效果
+Greasy Fork 页面停止公开收录，保留原链接和更新通道，方便已安装用户获取最终版本。GitHub 仓库作为历史档案保留，后续停止功能开发和兼容性维护。
 
-安装后，打开任意 X/Twitter 用户主页，脚本会自动扫描当前时间线。
+## Retirement notice
 
-如果检测到转发内容，它会将该转发折叠为一个轻量提示条，例如：
+EchoLess X was retired on **2026-11-13**. Thank you for your support and feedback.
 
-```text
-已隐藏一条转发    显示这条
-```
+The final version, **2026.11.13.3**, disables repost filtering, the control panel, and post-click interception. X handles browsing and navigation normally. A dismissible retirement notice appears when you visit X/Twitter; acknowledgment is stored locally. You may uninstall the script in your userscript manager. Existing settings are preserved.
 
-你可以点击“显示这条”临时展开该转发，也可以通过右下角的悬浮面板一键显示全部隐藏内容。
+Users with automatic updates enabled will receive the final version when their userscript manager checks for updates. You can also check manually. Refresh existing X/Twitter tabs after updating. If both manager storage and site storage are restricted, the notice may reappear on later visits.
 
----
+The Greasy Fork listing is unlisted while its existing URL and update channel remain available. This GitHub repository is retained as a historical archive. Development and compatibility maintenance have ended.
 
-## 支持的网站
+## 历史代码 / Historical source
 
-```text
-https://x.com/*
-https://twitter.com/*
-```
-
-本脚本主要针对 X/Twitter 的个人主页时间线，例如：
-
-```text
-https://x.com/username
-https://twitter.com/username
-```
-
-以下页面不会主动过滤：
-
-```text
-/explore
-/notifications
-/messages
-/search
-/settings
-/status/...
-```
-
----
-
-## 安装方式
-
-### 方式一：使用 Tampermonkey 安装
-
-1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 或其他用户脚本管理器。
-2. 新建一个用户脚本。
-3. 将脚本代码复制到编辑器中。
-4. 保存脚本。
-5. 打开 X/Twitter 的个人主页页面。
-
-### 方式二：手动安装 `.user.js` 文件
-
-1. 将脚本保存为：
-
-```text
-echoless-x.user.js
-```
-
-2. 使用用户脚本管理器打开该文件。
-3. 安装脚本。
-4. 访问 X/Twitter 的个人主页时间线。
-
----
-
-## 使用方法
-
-安装完成后，打开任意 X/Twitter 用户主页。
-
-EchoLess X 会自动扫描时间线，并隐藏检测到的转发内容。
-
-为避免破坏原时间线位置，个人主页中具有官方媒体弹层链接的帖子会优先使用该弹层；纯文字帖子和只有内嵌播放器的视频帖子会在新标签页打开。官方媒体弹层中的帖子、头像和用户名链接也会在新标签页打开；直接点击图片、视频和互动按钮仍使用 X 的原生行为。
-
-在支持的页面中，右下角会出现一个悬浮控制面板。你可以通过面板：
-
-* 切换“缩略图模式”和“隐藏条模式”
-* 一键显示所有隐藏的转发
-* 重新隐藏转发
-* 查看隐藏等级说明
-* 收起控制面板
-* 拖动控制面板到其他位置
-
----
-
-## 隐藏模式
-
-### 缩略图模式
-
-缩略图模式会隐藏转发正文，但保留一个小型预览区域。
-
-预览内容可能包括：
-
-* 被转发人的头像
-* 作者名称
-* 用户名
-* 图片或视频缩略图
-
-如果你希望隐藏大段转发内容，但仍然想快速浏览转发里的媒体，这个模式比较适合。
-
-### 隐藏条模式
-
-隐藏条模式会将转发折叠成一个紧凑的占位提示条。
-
-它不会显示头像、作者信息或媒体缩略图。
-
-这是默认推荐模式，适合获得更干净、更纯粹的原创时间线浏览体验。
-
----
-
-## 转发识别方式
-
-EchoLess X 只检查 X/Twitter 自己生成的社交上下文区域，例如：
-
-```text
-User reposted
-User retweeted
-用户转发了
-```
-
-它不会扫描推文正文内容。
-
-这样可以避免普通原创推文因为正文中出现“转发”“repost”“retweet”等词而被误判为转发。
-
----
-
-## 本地设置
-
-EchoLess X 会优先使用 Tampermonkey、Violentmonkey 等脚本管理器提供的存储保存隐藏模式。
-升级旧版本时，已有的隐藏模式会自动从 `localStorage` 迁移，不需要重新设置。
-
-保存的内容包括：
-
-* 当前选择的隐藏模式（脚本管理器存储）
-* 控制面板展开或收起状态（`localStorage`）
-* 控制面板位置（`localStorage`）
-
-这些设置只保存在你的浏览器和脚本管理器本地，不会上传到 EchoLess X 的服务器。
-
----
-
-## 隐私说明
-
-EchoLess X 完全在你的浏览器本地运行。
-
-它不会：
-
-* 收集个人数据
-* 向外部服务器发送数据
-* 跟踪你的浏览行为
-* 要求 API Key
-* 要求额外登录
-* 修改你的 X/Twitter 账号
-* 读取或保存你的账号密码
-
-所有过滤逻辑都在当前网页本地完成。
-
----
-
-## 兼容性
-
-EchoLess X 适用于支持用户脚本管理器的现代浏览器。
-
-推荐环境：
-
-* Chrome / Chromium 内核浏览器
-* Firefox
-* Edge
-* Tampermonkey
-* Violentmonkey
-
-由于 X/Twitter 经常调整前端结构，如果网站 HTML 或 `data-testid` 属性发生变化，脚本未来可能需要更新。
-
----
-
-## 开发说明
-
-脚本目前处理了以下场景：
-
-* 使用 `MutationObserver` 监听动态时间线加载
-* 适配 X/Twitter 单页应用路由切换
-* 判断当前页面是否为个人主页
-* 通过社交上下文标签识别转发
-* 记录单条转发的显示或隐藏状态
-* 本地缓存媒体缩略图预览
-* 保存可拖动控制面板状态
-* 适配暗色模式
-* 适配系统减少动画偏好
-
----
-
-## 后续计划
-
-未来可能加入的功能：
-
-* 单独控制是否隐藏引用转发
-* 支持指定用户白名单或黑名单
-* 支持导出和导入设置
-* 支持更多语言
-* 支持自定义默认隐藏模式
-* 支持快捷键操作
-
----
-
-## 开源协议
-
-MIT License
-
-你可以根据 MIT License 自由使用、修改和分发本项目。
+历史实现与提交保留在 [Git 历史](https://github.com/Aruke05/echoless-x/commits/main/) 中。
